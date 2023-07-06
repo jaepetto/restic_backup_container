@@ -1,0 +1,80 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ .Values.appLabel }}-cron-job"
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: "{{ .Values.appLabel }}"
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: {{ .Values.appLabel }}
+              image: "{{ .Values.IC_REGISTRY_URL }}/ic-it/{{ .Values.appLabel }}:latest"
+              imagePullPolicy: Always
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+              env:
+                - name: "IONICE_CLASS"
+                  valueFrom:
+                    configMapKeyRef:
+                      name: "{{ .Values.appLabel }}-config"
+                      key: "ioniceClass"
+
+                - name: "NICE_LEVEL"
+                  valueFrom:
+                    configMapKeyRef:
+                      name: "{{ .Values.appLabel }}-config"
+                      key: "niceLevel"
+
+                - name: "RESTIC_REPOSITORY"
+                  valueFrom:
+                    configMapKeyRef:
+                      name: "{{ .Values.appLabel }}-config"
+                      key: "RESTIC_REPOSITORY"
+
+                - name: "RESTIC_ACTION"
+                  valueFrom:
+                    configMapKeyRef:
+                      name: "{{ .Values.appLabel }}-config"
+                      key: "RESTIC_ACTION"
+
+                - name: "AWS_ACCESS_KEY_ID"
+                  valueFrom:
+                    secretKeyRef:
+                      name: "{{ .Values.appLabel }}-secrets"
+                      key: AWS_ACCESS_KEY_ID
+
+                - name: "AWS_SECRET_ACCESS_KEY"
+                  valueFrom:
+                    secretKeyRef:
+                      name: "{{ .Values.appLabel }}-secrets"
+                      key: "AWS_SECRET_ACCESS_KEY"
+
+                - name: "RESTIC_PASSWORD"
+                  valueFrom:
+                    secretKeyRef:
+                      name: "{{ .Values.appLabel }}-secrets"
+                      key: "RESTIC_PASSWORD"
+
+              resources:
+                # limits:
+                #   cpu: 2
+                #   memory: 1Gi
+                requests:
+                  cpu: 2
+                  memory: 2Gi
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: {{ .Values.dockerRegistrySecretName }}
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: "{{ .Values.VOLUME.NAME }}"
+  concurrencyPolicy: Forbid

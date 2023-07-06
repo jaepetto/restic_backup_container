@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Values.appLabel }}-config"
+  namespace: {{ .Values.namespace }}
+data:
+  RESTIC_REPOSITORY: {{ .Values.RESTIC_REPOSITORY | quote }}
+  RESTIC_ACTION: {{ .Values.RESTIC_ACTION | quote }}
+  ioniceClass: {{ .Values.ioniceClass | quote }}
+  niceLevel: {{ .Values.niceLevel | quote }}
