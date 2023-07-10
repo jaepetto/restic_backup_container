@@ -1,5 +1,9 @@
+import io
 import logging
 import os.path
+import signal
+import smtplib
+import ssl
 import subprocess
 import sys
 from typing import List
@@ -16,6 +20,13 @@ RESTIC_PASSWORD = config("RESTIC_PASSWORD", default="")
 RESTIC_ACTION = config("RESTIC_ACTION", default="")
 IONICE_CLASS = config("IONICE_CLASS", default="2")
 NICE_LEVEL = config("NICE_LEVEL", default="19")
+
+SMTP_SERVER = config("SMTP_SERVER", default="mail.epfl.ch")
+SMTP_PORT = config("SMTP_PORT", default="587")
+SMTP_USER = config("SMTP_USER", default="")
+SMTP_PASSWORD = config("SMTP_PASSWORD", default="")
+SMTP_FROM = config("SMTP_FROM", default="" if SMTP_USER == "" else SMTP_USER)
+SMTP_TO = config("SMTP_TO", default="")
 
 
 def checkResticAvailability() -> None:
@@ -100,6 +111,7 @@ def checkResticAction() -> None:
         "version",
         "init",
         "help",
+        "send_test_report",
     ]
     if RESTIC_ACTION in possible_actions:
         logger.info("RESTIC_ACTION is valid")
@@ -120,7 +132,17 @@ def runInit() -> None:
 
 def runBackup() -> None:
     logger.info("Running backup")
-    runRestic(["backup", "--exclude", "**/.Trash**", "--exclude", "**/.snapshot/**", "-vv", DATA_PATH])
+    runRestic(
+        [
+            "backup",
+            "--exclude",
+            "**/.Trash**",
+            "--exclude",
+            "**/.snapshot/**",
+            "-vv",
+            DATA_PATH,
+        ]
+    )
 
 
 def runCheck() -> None:
@@ -157,14 +179,19 @@ def runPrune() -> None:
 
 def runRestic(args: List[str], with_host: bool = True) -> None:
     logger.info("Running restic")
-    baseArgs = ["ionice", "-c{}".format(IONICE_CLASS), "nice", "-n{}".format(NICE_LEVEL), "/usr/local/bin/restic"]
+    baseArgs = [
+        "ionice",
+        "-c{}".format(IONICE_CLASS),
+        "nice",
+        "-n{}".format(NICE_LEVEL),
+        "/usr/local/bin/restic",
+    ]
     if with_host:
         baseArgs += ["--host", "docker"]
 
-    # completed_process = subprocess.run(baseArgs + args, capture_output=True, text=True)
     all_args = baseArgs + args
     logger.debug("Running restic with args: {all_args}".format(all_args=all_args))
-    completed_process = subprocess.run(all_args)
+    completed_process = subprocess.run(all_args, capture_output=True, text=True)
     if completed_process.returncode == 0:
         logger.info("Restic completed successfully")
         logger.info(completed_process.stdout)
@@ -175,32 +202,72 @@ def runRestic(args: List[str], with_host: bool = True) -> None:
 
 
 def main() -> None:
-    checkResticAvailability()
-    checkDataPath()
-    checkS3Credentials()
-    checkResticPassword()
-    checkResticAction()
+    try:
+        checkResticAvailability()
+        checkDataPath()
+        checkS3Credentials()
+        checkResticPassword()
+        checkResticAction()
 
-    if RESTIC_ACTION == "help":
-        runHelp()
-    elif RESTIC_ACTION == "init":
-        runInit()
-    elif RESTIC_ACTION == "backup":
-        runBackup()
-    elif RESTIC_ACTION == "check":
-        runCheck()
-    elif RESTIC_ACTION == "ls":
-        runList()
-    elif RESTIC_ACTION == "forget":
-        runForget()
-    elif RESTIC_ACTION == "prune":
-        runPrune()
-    else:
-        raise NotImplementedError(
-            "RESTIC_ACTION {RESTIC_ACTION} not implemented".format(
-                RESTIC_ACTION=RESTIC_ACTION
+        if RESTIC_ACTION == "help":
+            runHelp()
+        elif RESTIC_ACTION == "init":
+            runInit()
+        elif RESTIC_ACTION == "backup":
+            runBackup()
+        elif RESTIC_ACTION == "check":
+            runCheck()
+        elif RESTIC_ACTION == "ls":
+            runList()
+        elif RESTIC_ACTION == "forget":
+            runForget()
+        elif RESTIC_ACTION == "prune":
+            runPrune()
+        elif RESTIC_ACTION == "send_test_report":
+            send_report()
+        else:
+            raise NotImplementedError(
+                "RESTIC_ACTION {RESTIC_ACTION} not implemented".format(
+                    RESTIC_ACTION=RESTIC_ACTION
+                )
             )
-        )
+    except Exception as e:
+        logger.error("Error: {e}".format(e=e))
+    finally:
+        send_report()
+
+
+def send_report():
+    logger.info("Sending report")
+
+    messageHeader = (
+        f"From: {SMTP_FROM}\nTo: {SMTP_TO}\nSubject: Restic backup report\n\n"
+    )
+    with io.open("restic.log", "r") as f:
+        log = f.read()
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_FROM, SMTP_TO, messageHeader + log)
+    except Exception as e:
+        logger.error("Error sending report: {e}".format(e=e))
+    finally:
+        server.quit()
+
+
+def handle_sigterm(signum, frame):
+    logger.info("SIGTERM received, sending and exiting")
+    send_report()
+    sys.exit(0)
+
+
+def handle_sigint(signum, frame):
+    logger.info("SIGINT received, sending and exiting")
+    send_report()
+    sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -208,6 +275,11 @@ if __name__ == "__main__":
         level=logging.DEBUG,
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        stream=sys.stdout,
+        # stream=sys.stdout,
+        handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("restic.log")],
     )
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    signal.signal(signal.SIGINT, handle_sigint)
+
     main()

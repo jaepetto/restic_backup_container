@@ -44,7 +44,13 @@ helm-dry-run:
     --set RESTIC_ACTION=$RESTIC_ACTION \
     --set VOLUME.NAME=$VOLUME_NAME \
     --set VOLUME.SERVER=$VOLUME_SERVER \
-    --set VOLUME.PATH=$VOLUME_PATH
+    --set VOLUME.PATH=$VOLUME_PATH \
+    --set SMTP_SERVER=$SMTP_SERVER \
+    --set SMTP_PORT=$SMTP_PORT \
+    --set SMTP_USER=$SMTP_USER \
+    --set SMTP_PASSWORD=$SMTP_PASSWORD \
+    --set SMTP_FROM=$SMTP_FROM \
+    --set SMTP_TO=$SMTP_TO
 
 helm-install:
   #!/bin/bash
@@ -62,4 +68,10 @@ helm-install:
     --set RESTIC_ACTION=$RESTIC_ACTION \
     --set VOLUME.NAME=$VOLUME_NAME \
     --set VOLUME.SERVER=$VOLUME_SERVER \
-    --set VOLUME.PATH=$VOLUME_PATH
+    --set VOLUME.PATH=$VOLUME_PATH \
+    --set SMTP_SERVER=$SMTP_SERVER \
+    --set SMTP_PORT=$SMTP_PORT \
+    --set SMTP_USER=$SMTP_USER \
+    --set SMTP_PASSWORD=$SMTP_PASSWORD \
+    --set SMTP_FROM=$SMTP_FROM \
+    --set SMTP_TO=$SMTP_TO

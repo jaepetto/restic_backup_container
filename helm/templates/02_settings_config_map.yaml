@@ -9,3 +9,8 @@ data:
   RESTIC_ACTION: {{ .Values.RESTIC_ACTION | quote }}
   ioniceClass: {{ .Values.ioniceClass | quote }}
   niceLevel: {{ .Values.niceLevel | quote }}
+  SMTP_SERVER: {{ .Values.SMTP_SERVER | quote }}
+  SMTP_PORT: {{ .Values.SMTP_PORT | quote }}
+  SMTP_USER: {{ .Values.SMTP_USER | quote }}
+  SMTP_FROM: {{ .Values.SMTP_FROM | quote }}
+  SMTP_TO: {{ .Values.SMTP_TO | quote }}
