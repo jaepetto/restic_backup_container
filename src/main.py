@@ -195,6 +195,11 @@ def runRestic(args: List[str], with_host: bool = True) -> None:
     if completed_process.returncode == 0:
         logger.info("Restic completed successfully")
         logger.info(completed_process.stdout)
+    elif completed_process.returncode == 3:
+        logger.warning(
+            f"Restic completed with warnings (rc={completed_process.returncode})"
+        )
+        logger.info(completed_process.stdout)
     else:
         logger.warning(f"Restic failed (rc={completed_process.returncode})")
         logger.warning(completed_process.stderr)
