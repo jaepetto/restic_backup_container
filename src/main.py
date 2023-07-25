@@ -248,7 +248,7 @@ def send_report():
         f"From: {SMTP_FROM}\nTo: {SMTP_TO}\nSubject: Restic backup report\n\n"
     )
     with io.open("restic.log", "r") as f:
-        log = f.read().encode("utf-8")
+        log = f.read().encode("utf-8").decode(errors="ignore")
     try:
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.ehlo()
