@@ -9,7 +9,7 @@ import sys
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import COMASPACE, formatdate
+from email.utils import formatdate
 from typing import List
 
 from decouple import config
@@ -253,25 +253,40 @@ def send_report():
     # )
     # with io.open("restic.log", "r") as f:
     #     log = f.read().encode("utf-8").decode(errors="ignore")
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_FROM
-    msg["To"] = COMASPACE.join(SMTP_TO)
-    msg["Date"] = formatdate(localtime=True)
-    msg["Subject"] = "Restic backup report"
-
-    msg.attach(MIMEText("Restic backup report"))
-
-    with open("restic.log", "rb") as f:
-        part = MIMEApplication(f.read(), Name="restic.log")
-    part["Content-Disposition"] = 'attachment; filename="restic.log"'
-    msg.attach(part)
+    try:
+        logger.info("Creating message")
+        msg = MIMEMultipart()
+        msg["From"] = SMTP_FROM
+        msg["To"] = SMTP_TO
+        msg["Date"] = formatdate(localtime=True)
+        msg["Subject"] = "Restic backup report"
+    except Exception as e:
+        logger.error("Error creating message: {e}".format(e=e))
 
     try:
+        logger.info("Setting message body")
+        msg.attach(MIMEText("Restic backup report"))
+    except Exception as e:
+        logger.error("Error setting message body: {e}".format(e=e))
+
+    try:
+        logger.info("Attaching log")
+        with open("restic.log", "rb") as f:
+            part = MIMEApplication(f.read(), Name="restic.log")
+        part["Content-Disposition"] = 'attachment; filename="restic.log"'
+        msg.attach(part)
+    except Exception as e:
+        logger.error("Error attaching log: {e}".format(e=e))
+
+    try:
+        logger.info("Connecting to SMTP server")
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.ehlo()
         server.starttls()
         server.ehlo()
         server.login(SMTP_USER, SMTP_PASSWORD)
+
+        logger.info("Sending message")
         # server.sendmail(SMTP_FROM, SMTP_TO, messageHeader + log)
         server.sendmail(SMTP_FROM, SMTP_TO, msg.as_string())
     except Exception as e:
