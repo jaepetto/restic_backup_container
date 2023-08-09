@@ -144,7 +144,7 @@ def runBackup() -> None:
             "**/.Trash**",
             "--exclude",
             "**/.snapshot/**",
-            "-vv",
+            "-v",
             DATA_PATH,
         ]
     )
