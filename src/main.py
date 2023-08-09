@@ -6,6 +6,7 @@ import smtplib
 import ssl
 import subprocess
 import sys
+import zipfile
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -245,6 +246,12 @@ def main() -> None:
         send_report()
 
 
+def zipReport():
+    logger.info("Zipping report")
+    with zipfile.ZipFile("restic.log.zip", "w", zipfile.ZIP_DEFLATED) as zip:
+        zip.write("restic.log")
+
+
 def send_report():
     logger.info("Sending report")
 
@@ -270,10 +277,15 @@ def send_report():
         logger.error("Error setting message body: {e}".format(e=e))
 
     try:
+        zipReport()
+    except Exception as e:
+        logger.error("Error zipping report: {e}".format(e=e))
+
+    try:
         logger.info("Attaching log")
-        with open("restic.log", "rb") as f:
+        with open("restic.log.zip", "rb") as f:
             part = MIMEApplication(f.read(), Name="restic.log")
-        part["Content-Disposition"] = 'attachment; filename="restic.log"'
+        part["Content-Disposition"] = 'attachment; filename="restic.log.zip"'
         msg.attach(part)
     except Exception as e:
         logger.error("Error attaching log: {e}".format(e=e))
